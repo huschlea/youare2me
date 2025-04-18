@@ -20,7 +20,15 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+
+    /* ────────────────────────★ ADD ↓ ★──────────────────────── */
+    "baseUrl": ".", // tells TS “start at project root”
+    "paths": {
+      // maps "@/..." → "src/..."
+      "@/*": ["src/*"]
+    }
+    /* ───────────────────────────────────────────────────────── */
   },
   "include": ["src"]
 }
