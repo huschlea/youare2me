@@ -3,5 +3,8 @@
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" }
-  ]
+  ],
+
+  /* prevent the app / node configs from double‑compiling the Deno code */
+  "exclude": ["supabase/functions"]
 }

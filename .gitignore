@@ -25,3 +25,7 @@ dist-ssr
 
 # Local secrets
 .env.local
+
+# Supabase CLI temp
+supabase/.temp/
+supabase/.branches/
