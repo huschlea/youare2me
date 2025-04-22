@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useDraft } from "@/lib/useDraft";
 
 export default function NewTributeForm() {
-  /* ─────────────────────── state ──────────────────────────────── */
+  /* ------------------------ state ------------------------------- */
   const [recipient, setRecipient] = useDraft<string>("draft:recipient", "");
   const [senderName, setSenderName] = useDraft<string>("draft:sender", "");
   const [message, setMessage] = useDraft<string>("draft:message", "");
@@ -14,7 +14,7 @@ export default function NewTributeForm() {
   const isValid = Boolean(recipient.trim() && message.trim());
   const navigate = useNavigate();
 
-  /* ─────────────────────── submit ─────────────────────────────── */
+  /* ------------------------ submit ------------------------------ */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid || isSubmitting) return;
@@ -46,18 +46,18 @@ export default function NewTributeForm() {
     navigate(`/invite/${data!.id}`);
   };
 
-  /* ─────────────────────── UI ─────────────────────────────────── */
+  /* ------------------------ UI ---------------------------------- */
   return (
     <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-md rounded-xl bg-white shadow-lg p-8 space-y-6"
       >
-        <h1 className="text-2xl font-semibold text-center">New Tribute</h1>
+        <h1 className="text-2xl font-semibold text-center">New Tribute</h1>
 
         {/* Recipient */}
         <label className="block">
-          <span className="text-sm font-medium">Recipient name *</span>
+          <span className="text-sm font-medium">Recipient name *</span>
           <input
             type="text"
             required
@@ -70,7 +70,7 @@ export default function NewTributeForm() {
 
         {/* Sender (optional) */}
         <label className="block">
-          <span className="text-sm font-medium">Your name</span>
+          <span className="text-sm font-medium">Your name</span>
           <input
             type="text"
             value={senderName}
@@ -82,7 +82,7 @@ export default function NewTributeForm() {
 
         {/* Message */}
         <label className="block">
-          <span className="text-sm font-medium">Message *</span>
+          <span className="text-sm font-medium">Message *</span>
           <textarea
             rows={4}
             required
@@ -96,14 +96,13 @@ export default function NewTributeForm() {
         <button
           type="submit"
           disabled={!isValid || isSubmitting}
-          className={`w-full py-2 rounded-md font-semibold transition
-            ${
-              !isValid || isSubmitting
-                ? "bg-indigo-300 cursor-not-allowed"
-                : "bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white"
-            }`}
+          className={`w-full py-2 rounded-md font-semibold transition ${
+            !isValid || isSubmitting
+              ? "bg-indigo-300 cursor-not-allowed"
+              : "bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white"
+          }`}
         >
-          {isSubmitting ? "Saving…" : "Save tribute"}
+          {isSubmitting ? "Saving…" : "Save tribute"}
         </button>
       </form>
     </main>

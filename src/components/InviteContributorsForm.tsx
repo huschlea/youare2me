@@ -30,8 +30,10 @@ export default function InviteContributorsForm() {
     try {
       await upsertInvites(contacts, tributeId);
       navigate(`/invite/${tributeId}/sent`); // success page
-    } catch (err: any) {
-      setError(err.message ?? "Something went wrong");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Something went wrong";
+      setError(message);
     } finally {
       setLoading(false);
     }

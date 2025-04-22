@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    /* modern output compatible with Deno */
+    "target": "ESNext",
+    "module": "ESNext",
+
+    /* URL‑based imports work only with “bundler” */
+    "moduleResolution": "bundler",
+
+    /* add browser / DOM globals + the Deno namespace */
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+
+    "strict": true
+  },
+  "include": ["./**/*.ts"]
+}
