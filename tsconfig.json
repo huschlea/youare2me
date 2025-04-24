@@ -5,6 +5,14 @@
     { "path": "./tsconfig.node.json" }
   ],
 
-  /* prevent the app / node configs from double‑compiling the Deno code */
+  /* ───────── compiler settings ───────── */
+  "compilerOptions": {
+    "baseUrl": "." /* resolve paths relative to repo root */,
+    "paths": {
+      "@/*": ["src/*"] /* so "@/foo" → "src/foo" */
+    }
+  },
+
+  /* prevent the app / node configs from double-compiling the Deno code */
   "exclude": ["supabase/functions"]
 }

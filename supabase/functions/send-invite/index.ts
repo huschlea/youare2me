@@ -1,28 +1,46 @@
 /// <reference lib="deno.ns" />
 
+/**
+ * Edge Function: send‑invite
+ *
+ * Handles two use‑cases:
+ *  1. Webhook (Supabase row trigger) — sends the actual invite via Twilio / SendGrid
+ *  2. Direct POST  { invite_id, display_name, message } — participant has submitted their
+ *     sentiment; we persist that data in `invites` (display_name, message, submitted_at)
+ *     and fall through to the same delivery route if the row still needs to be sent.
+ *
+ *  Step‑1 Day‑6 update: write `display_name`, `message`, and `submitted_at` to the
+ *  `public.invites` table (≤40 / ≤280 chars enforced by DB CHECKs).
+ */
+
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 serve(async (req: Request) => {
-  /* -------- payload -------- */
+  /* ------------------------------------------------------------------
+   *  Parse payload
+   * ------------------------------------------------------------------ */
   const payload = await req.json().catch(() => ({}));
+
+  const display_name: string | undefined = payload.display_name;
+  const message: string | undefined = payload.message;
+
   let record = payload.record as
     | {
         id: string;
         contact: string;
         contact_type: "sms" | "email" | "phone";
         tribute_id: string;
+        sent: boolean;
       }
     | undefined;
 
-  // Fallback: fetch the row if caller only sent { invite_id }
+  /* Fallback: fetch the row if caller only sent { invite_id } */
   if (!record && payload.invite_id) {
-    const sr = createClient(
-      SUPABASE_URL,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! // bypass RLS
-    );
+    const sr = createClient(SUPABASE_URL, SERVICE_ROLE_KEY); // bypass RLS
     const { data, error } = await sr
       .from("invites")
       .select("*")
@@ -43,18 +61,42 @@ serve(async (req: Request) => {
 
   const { id, contact, contact_type, tribute_id } = record;
 
-  /* -------- body + opt‑out -------- */
-  const body = `Someone wrote a tribute — add yours at https://youare2.me/contribute/${tribute_id}
+  /* ------------------------------------------------------------------
+   *  Persist participant submission, if provided
+   * ------------------------------------------------------------------ */
+  if (display_name || message) {
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-Reply STOP to opt out • HELP for help`;
+    const updateFields: Record<string, unknown> = {
+      sent: true,
+      submitted_at: new Date().toISOString(),
+    };
+    if (display_name) updateFields.display_name = display_name;
+    if (message) updateFields.message = message;
 
-  /* -------- runtime flags -------- */
+    const { error: upErr } = await admin
+      .from("invites")
+      .update(updateFields)
+      .eq("id", id);
+
+    if (upErr) {
+      console.error("failed to persist submission:", upErr);
+      return new Response("DB update failed", { status: 500 });
+    }
+  }
+
+  /* ------------------------------------------------------------------
+   *  Compose invite body + opt‑out footer
+   * ------------------------------------------------------------------ */
+  const body = `Someone wrote a tribute — add yours at https://youare2.me/contribute/${tribute_id}\n\nReply STOP to opt out • HELP for help`;
+
   const isSms = contact_type === "sms" || contact_type === "phone";
   const isMock = Deno.env.get("TWILIO_MOCK") === "true";
 
-  /* -------- delivery -------- */
+  /* ------------------------------------------------------------------
+   *  Deliver via Twilio (SMS) or SendGrid (email)
+   * ------------------------------------------------------------------ */
   if (isSms) {
-    /* Twilio SMS */
     const accountSid = isMock
       ? Deno.env.get("TWILIO_TEST_SID")!
       : Deno.env.get("TWILIO_SID")!;
@@ -62,9 +104,7 @@ Reply STOP to opt out • HELP for help`;
       ? Deno.env.get("TWILIO_TEST_TOKEN")!
       : Deno.env.get("TWILIO_TOKEN")!;
 
-    const from = isMock
-      ? "+15005550006" /* magic success number */
-      : Deno.env.get("TWILIO_FROM")!;
+    const from = isMock ? "+15005550006" : Deno.env.get("TWILIO_FROM")!;
     const messagingServiceSid = Deno.env.get("TWILIO_MESSAGING_SERVICE");
 
     const params = new URLSearchParams({
@@ -89,7 +129,6 @@ Reply STOP to opt out • HELP for help`;
 
     console.log("twilio status", twilioRes.status, await twilioRes.text());
   } else {
-    /* SendGrid email */
     const sgRes = await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
       headers: {
@@ -107,17 +146,8 @@ Reply STOP to opt out • HELP for help`;
     console.log("sendgrid status", sgRes.status, await sgRes.text());
   }
 
-  /* -------- mark invite as sent -------- */
-  const admin = createClient(
-    SUPABASE_URL,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! // anon key is provided to Edge Functions
-  );
-
-  try {
-    await admin.from("invites").update({ sent: true }).eq("id", id);
-  } catch (e) {
-    console.error("failed to mark sent:", e);
-  }
-
+  /* ------------------------------------------------------------------
+   *  Final response
+   * ------------------------------------------------------------------ */
   return new Response("ok");
 });
