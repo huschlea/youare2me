@@ -1,44 +1,68 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { supabase } from "@/lib/supabaseClient";
 
-import { useContactsParser } from "@/hooks/useContactsParser";
-import ContactPreviewItem from "@/components/ContactPreviewItem";
-import { upsertInvites } from "@/services/invites"; // NEW
+import { useInviteForm } from "@/hooks/useInviteForm";
+import StatusChip from "@/components/StatusChip";
 
 export default function InviteContributorsForm() {
-  // raw textarea string
-  const [contactsRaw, setContactsRaw] = useState("");
+  /* chip-state hook */
+  const {
+    field,
+    setField,
+    contacts,
+    add,
+    remove,
+    isValid: allValid,
+  } = useInviteForm();
 
-  // derived, memoized contact objects
-  const contacts = useContactsParser(contactsRaw);
-  const allValid = contacts.length > 0 && contacts.every((c) => c.valid);
-
-  // UX state
+  /* UX + router */
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // router helpers
   const { id: tributeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  async function handleSend() {
-    if (!tributeId) return; // should never happen, but type‑safe
-
+  /* submit */
+  const handleSend = async () => {
+    if (!tributeId) return;
     setLoading(true);
     setError(null);
 
     try {
-      await upsertInvites(contacts, tributeId);
-      navigate(`/invite/${tributeId}/sent`); // success page
+      /* build rows */
+      const rows = contacts
+        .filter((c) => !c.invalid)
+        .map((c) => ({
+          id: crypto.randomUUID(),
+          tribute_id: tributeId,
+          contact: c.value,
+          contact_type: c.type,
+          display_name: null,
+          sent: false,
+          attempts: 0,
+        }));
+
+      const { error: insertErr } = await supabase.from("invites").insert(rows);
+      if (insertErr) throw insertErr;
+
+      /* invoke batch function with JSON header */
+      await supabase.functions.invoke("send-invite-batch", {
+        body: { tribute_id: tributeId },
+        headers: { "Content-Type": "application/json" },
+      });
+
+      navigate(`/invite/${tributeId}/sent`);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Something went wrong";
-      setError(message);
+      const msg =
+        (err as { message?: string })?.message ?? JSON.stringify(err, null, 2);
+      setError(msg);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
+  /* render */
   return (
     <form
       className="space-y-6"
@@ -47,42 +71,65 @@ export default function InviteContributorsForm() {
         handleSend();
       }}
     >
-      {/* 1 ▸ Contacts textarea */}
+      {/* 1 ▸ entry */}
       <label className="block">
         <span className="block font-semibold mb-1">
-          Contacts (email or phone)
+          Add contributor (email or phone)
         </span>
-        <textarea
-          value={contactsRaw}
-          onChange={(e) => setContactsRaw(e.target.value)}
-          rows={4}
-          placeholder="alice@example.com, +14155550123, bob@gmail.com…"
-          className="w-full rounded-md border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        <input
+          ref={inputRef}
+          value={field}
+          autoFocus
+          onChange={(e) => setField(e.target.value)}
+          onKeyDown={(e) => {
+            const trigger =
+              e.key === "Enter" ||
+              e.key === "," ||
+              (e.key === "v" && (e.metaKey || e.ctrlKey));
+            if (trigger) {
+              if (!(e.key === "v" && (e.metaKey || e.ctrlKey)))
+                e.preventDefault();
+              if (field) {
+                add(field);
+                setField("");
+              }
+              setTimeout(() => inputRef.current?.focus(), 0);
+            }
+          }}
+          placeholder="alice@example.com, +14155550123, press Enter…"
+          className="w-full rounded-md border border-gray-300 p-3
+                     focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
       </label>
 
-      {/* 2 ▸ Preview list */}
-      <div>
-        <h3 className="font-medium mb-2">Preview</h3>
-        {contacts.length === 0 ? (
-          <p className="text-sm text-gray-500">Nothing to show yet.</p>
-        ) : (
-          <ul className="space-y-1">
-            {contacts.map((c) => (
-              <ContactPreviewItem key={c.raw} contact={c} />
-            ))}
-          </ul>
-        )}
-      </div>
+      {/* 2 ▸ chips */}
+      <ul className="flex flex-wrap gap-2">
+        {contacts.map((c, i) => (
+          <StatusChip
+            key={c.value}
+            name={c.value}
+            invalid={c.invalid}
+            onClose={() => remove(i)}
+          />
+        ))}
+      </ul>
+      {!allValid && (
+        <p className="text-sm text-red-600">
+          Remove or correct contacts marked in red.
+        </p>
+      )}
 
-      {/* 3 ▸ Error state */}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {/* 3 ▸ server error */}
+      {error && (
+        <p className="text-sm text-red-600 whitespace-pre-wrap">{error}</p>
+      )}
 
-      {/* 4 ▸ Send button */}
+      {/* 4 ▸ submit */}
       <button
         type="submit"
         disabled={!allValid || loading}
-        className="w-full py-2 rounded-md bg-indigo-600 text-white disabled:bg-gray-300 transition"
+        className="w-full py-2 rounded-md bg-indigo-600 text-white
+                   disabled:bg-gray-300 transition"
       >
         {loading ? "Sending…" : "Send Invites"}
       </button>

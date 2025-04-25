@@ -1,21 +1,49 @@
+// src/components/StatusChip.tsx
 import React from "react";
 
-interface Props {
+interface StatusChipProps {
   name: string;
-  sent: boolean;
-  attempts: number;
+  sent?: boolean;
+  attempts?: number;
+  invalid?: boolean;
+  /** optional close handler (shows × if present) */
+  onClose?: () => void;
 }
 
-export const StatusChip: React.FC<Props> = ({ name, sent, attempts }) => {
-  const color = sent
-    ? "bg-emerald-600"
-    : attempts > 0
-      ? "bg-amber-500"
-      : "bg-gray-300";
+const StatusChip: React.FC<StatusChipProps> = ({
+  name,
+  sent = false,
+  attempts = 0,
+  invalid = false,
+  onClose,
+}) => {
+  const colorClass = invalid
+    ? "bg-red-500 text-white"
+    : sent
+      ? "bg-emerald-600 text-white"
+      : attempts > 0
+        ? "bg-amber-500 text-white"
+        : "bg-gray-300 text-gray-800";
 
   return (
-    <div className={`px-3 py-1 rounded-full text-sm font-medium ${color}`}>
+    <span
+      title={invalid ? "Invalid contact" : name}
+      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${colorClass}`}
+    >
       {name}
-    </div>
+      {invalid && <span className="font-bold">!</span>}
+      {onClose && (
+        <button
+          type="button"
+          aria-label="Remove"
+          onClick={onClose}
+          className="ml-1 hover:opacity-70"
+        >
+          ×
+        </button>
+      )}
+    </span>
   );
 };
+
+export default StatusChip;
