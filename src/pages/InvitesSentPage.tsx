@@ -1,48 +1,57 @@
-import { Link, useParams } from "react-router-dom";
+// src/pages/InvitesSentPage.tsx
+import { useParams, useNavigate } from "react-router-dom";
 import { ProgressBar } from "@/components/ProgressBar";
-import { StatusChip } from "@/components/StatusChip";
+import AllSentBanner from "@/components/AllSentBanner";
 import { useInviteStatuses } from "@/hooks/useInviteStatuses";
+import { CheckCircleIcon } from "@heroicons/react/24/solid";
 
 export default function InvitesSentPage() {
-  /* :id is the tribute (not invite) ID that NewTributeForm returned */
   const { id: tributeId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
-  /* live roster */
-  const rows = useInviteStatuses(tributeId!);
-  const done = rows.filter((r) => r.sent).length;
-  const pct = rows.length ? (done / rows.length) * 100 : 0;
+  /* live invite rows (organizer row included, harmless) */
+  const rows = useInviteStatuses(tributeId);
+
+  /* progress */
+  const done = rows.filter((r) => r.sent === true || r.sent === "true").length;
+  const total = rows.length;
+  const pct = total ? (done / total) * 100 : 0;
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8 text-center space-y-6">
+      <div className="w-full max-w-md space-y-6 rounded-xl bg-white p-8 text-center shadow-lg">
         <h1 className="text-2xl font-semibold">Invites sent ✅</h1>
 
         {/* progress bar */}
-        <ProgressBar pct={pct} />
+        <div className="space-y-2">
+          <ProgressBar pct={pct} />
 
-        {/* roster chips */}
-        <div className="flex flex-wrap gap-2 justify-center">
-          {rows.map((r) => (
-            <StatusChip
-              key={r.id}
-              name={r.display_name}
-              sent={r.sent}
-              attempts={r.attempts}
-            />
-          ))}
+          {/* sent counter */}
+          <p className="text-sm text-gray-600 flex items-center justify-center gap-1">
+            {done === total ? (
+              <>
+                <CheckCircleIcon className="h-4 w-4 text-green-600" />
+                <span>All&nbsp;{total}&nbsp;invites sent</span>
+              </>
+            ) : (
+              <span>
+                {done}&nbsp;/&nbsp;{total}&nbsp;invites sent
+              </span>
+            )}
+          </p>
         </div>
 
-        {/* share-link helper */}
-        <p className="text-gray-700">
-          Friends &amp; family can leave messages at:
-        </p>
-        <div className="bg-gray-100 rounded-md p-3 font-mono break-all">
-          https://youare2.me/contribute/{tributeId}
-        </div>
+        {/* banner appears once every invite is sent */}
+        {pct === 100 && tributeId && <AllSentBanner tributeId={tributeId} />}
 
-        <Link to="/" className="text-indigo-600 hover:underline">
-          Start another tribute
-        </Link>
+        {/* add-contributors button */}
+        <button
+          type="button"
+          onClick={() => navigate(`/invite/${tributeId}`)}
+          className="text-indigo-600 hover:underline"
+        >
+          + Add more contributors
+        </button>
       </div>
     </main>
   );

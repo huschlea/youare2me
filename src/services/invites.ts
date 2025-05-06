@@ -5,11 +5,11 @@
 // that later.  Throws on any Supabase error so the caller can surface
 // it in the UI.
 // ------------------------------------------------------------------
-
+console.log("line 8");
 import { supabase } from "@/lib/supabaseClient";
 import { Contact } from "@/hooks/useContactsParser";
 
-/**
+/**s
  * Insert (email / phone) contacts for a single tribute.
  *
  * @param contacts  Array produced by useContactsParser
