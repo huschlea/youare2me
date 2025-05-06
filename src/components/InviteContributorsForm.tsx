@@ -30,7 +30,7 @@ export default function InviteContributorsForm() {
     setError(null);
 
     try {
-      /* build rows */
+      /* 1 ▸ build rows */
       const rows = contacts
         .filter((c) => !c.invalid)
         .map((c) => ({
@@ -38,20 +38,22 @@ export default function InviteContributorsForm() {
           tribute_id: tributeId,
           contact: c.value,
           contact_type: c.type,
-          display_name: null,
+          display_name: c.name?.trim() || null, // keep if organizer typed a name
           sent: false,
           attempts: 0,
+          position: 999, // new col; will be normalized later
         }));
 
+      /* 2 ▸ insert */
       const { error: insertErr } = await supabase.from("invites").insert(rows);
       if (insertErr) throw insertErr;
 
-      /* invoke batch function with JSON header */
+      /* 3 ▸ batch function */
       await supabase.functions.invoke("send-invite-batch", {
         body: { tribute_id: tributeId },
-        headers: { "Content-Type": "application/json" },
       });
 
+      /* 4 ▸ done */
       navigate(`/invite/${tributeId}/sent`);
     } catch (err: unknown) {
       const msg =
@@ -107,7 +109,8 @@ export default function InviteContributorsForm() {
         {contacts.map((c, i) => (
           <StatusChip
             key={c.value}
-            name={c.value}
+            displayName={c.name?.trim() || null}
+            contact={c.value}
             invalid={c.invalid}
             onClose={() => remove(i)}
           />

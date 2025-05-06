@@ -1,59 +1,30 @@
+// src/hooks/useInviteStatuses.ts
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-
-export interface InviteStatus {
-  id: string;
-  display_name: string;
-  sent: boolean;
-  attempts: number;
-  submitted_at: string | null;
-}
+import { Invite } from "@/types/invite";
 
 /**
- * Subscribe to real-time invite statuses for a tribute.
- * If tributeId is null/undefined, the hook immediately returns the
- * last cached rows (initially []) and does nothing else.
+ * One-shot fetch of all invite rows for a tribute.
+ * Returns the full Invite objects so downstream pages
+ * (preview rail, sent-status page, etc.) can access
+ * `role`, `contact_type`, `position`, and every other column.
+ *
+ * If you later need true realtime, wire up a channel
+ * exactly like in the old version and call setRows(next).
  */
-export const useInviteStatuses = (tributeId: string | null | undefined) => {
-  const [rows, setRows] = useState<InviteStatus[]>([]);
+export function useInviteStatuses(tributeId?: string) {
+  const [rows, setRows] = useState<Invite[]>([]);
 
-  /* ── initial fetch ── */
   useEffect(() => {
-    if (!tributeId) return; // guard: nothing to do yet
+    if (!tributeId) return;
 
     supabase
-      .from("invite_status_v")
-      .select("*")
+      .from<Invite>("invites")
+      .select("*") // pull every column, incl. role / contact_type
       .eq("tribute_id", tributeId)
-      .order("submitted_at", { ascending: true, nullsLast: true })
+      .order("position", { ascending: true }) // keep stable order
       .then(({ data }) => setRows(data ?? []));
   }, [tributeId]);
 
-  /* ── realtime subscription ── */
-  useEffect(() => {
-    if (!tributeId) return; // guard
-
-    const channel = supabase
-      .channel(`invite-status-${tributeId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "invites",
-          filter: `tribute_id=eq.${tributeId}`,
-        },
-        (payload) =>
-          setRows((curr) =>
-            curr.map((r) => (r.id === payload.new.id ? payload.new : r))
-          )
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [tributeId]);
-
   return rows;
-};
+}

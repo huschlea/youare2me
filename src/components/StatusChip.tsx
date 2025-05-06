@@ -2,21 +2,31 @@
 import React from "react";
 
 interface StatusChipProps {
-  name: string;
+  /** Friendly name the contributor typed (may be null/undefined). */
+  displayName?: string | null;
+  /** Raw e-mail or phone; always present. */
+  contact: string;
   sent?: boolean;
   attempts?: number;
   invalid?: boolean;
-  /** optional close handler (shows × if present) */
+  /** Shows a × icon when provided. */
   onClose?: () => void;
 }
 
+/**
+ * Pill that reflects invite state.
+ * Label logic: displayName → contact  (never blank).
+ */
 const StatusChip: React.FC<StatusChipProps> = ({
-  name,
+  displayName,
+  contact,
   sent = false,
   attempts = 0,
   invalid = false,
   onClose,
 }) => {
+  const label = displayName?.trim() || contact;
+
   const colorClass = invalid
     ? "bg-red-500 text-white"
     : sent
@@ -27,10 +37,10 @@ const StatusChip: React.FC<StatusChipProps> = ({
 
   return (
     <span
-      title={invalid ? "Invalid contact" : name}
+      title={invalid ? "Invalid contact" : label}
       className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${colorClass}`}
     >
-      {name}
+      {label}
       {invalid && <span className="font-bold">!</span>}
       {onClose && (
         <button
