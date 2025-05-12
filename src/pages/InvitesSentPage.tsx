@@ -22,11 +22,9 @@ export default function InvitesSentPage() {
       <div className="w-full max-w-md space-y-6 rounded-xl bg-white p-8 text-center shadow-lg">
         <h1 className="text-2xl font-semibold">Invites sent ✅</h1>
 
-        {/* progress bar */}
+        {/* progress bar + counter */}
         <div className="space-y-2">
           <ProgressBar pct={pct} />
-
-          {/* sent counter */}
           <p className="text-sm text-gray-600 flex items-center justify-center gap-1">
             {done === total ? (
               <>

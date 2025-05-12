@@ -1,24 +1,74 @@
 // src/components/PosterCanvas.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTribute } from "@/hooks/useTribute";
-import { useInvites } from "@/hooks/useInvites";
-import PosterParagraph from "@/components/PosterParagraph";
+import { useInviteStatuses } from "@/hooks/useInviteStatuses";
+import { useAutoFont } from "@/hooks/useAutoFont";
 import StyleToolbar from "@/components/StyleToolbar";
 
+const escape = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 export default function PosterCanvas({ tributeId }: { tributeId: string }) {
-  /* 1 ▸ tribute metadata (recipient, accent swatch, etc.) */
+  /* live data */
   const { tribute } = useTribute(tributeId);
+  const invites = useInviteStatuses(tributeId);
 
-  /* 2 ▸ contributor list, which now includes the organizer row */
-  const { invites } = useInvites(tributeId);
-
-  /* 3 ▸ local accent for instant UI feedback */
-  const [accent, setAccent] = useState<string>("#0f766e");
+  /* accent colour */
+  const [accent, setAccent] = useState("#0f766e");
   useEffect(() => {
     if (tribute?.accent_color) setAccent(tribute.accent_color);
   }, [tribute]);
 
-  /* 4 ▸ guard while loading either piece */
+  /* refs + placeholders to keep hooks order stable */
+  const ref = useRef<HTMLParagraphElement>(null);
+  let plain = "";
+  let rich = "";
+
+  if (tribute && invites) {
+    const recipient = tribute.recipient ?? "Recipient";
+
+    /** ordered, **VISIBLE** contributions only */
+    const ordered = [...invites]
+      .filter((i) => !i.hidden) // 👈 skip hidden rows
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+      .filter((i) => i.message && i.message.trim().length > 0);
+
+    /* plain string for auto-font */
+    plain =
+      `${recipient} is ` +
+      ordered
+        .map((p) => `${p.message.trim()}. ${p.display_name || p.contact} `)
+        .join(" ");
+
+    /* rich HTML with accent spans */
+    const start = `<span style="color:${accent}">${escape(recipient)} is</span>`;
+    const parts = ordered.map((p) => {
+      const msg = escape(p.message.trim());
+      const name = escape(p.display_name || p.contact);
+      return `${msg}. <span style="color:${accent}">${name}</span> `;
+    });
+    rich = `${start} ${parts.join(" ")}`.trim();
+  }
+
+  /* width fit */
+  useAutoFont(ref, plain);
+
+  /* extra height fit */
+  useEffect(() => {
+    const el = ref.current;
+    const box = el?.parentElement;
+    if (!el || !box) return;
+    let size = parseFloat(getComputedStyle(el).fontSize);
+    while (
+      size > 10 &&
+      (el.scrollHeight > box.clientHeight || el.scrollWidth > box.clientWidth)
+    ) {
+      size -= 1;
+      el.style.fontSize = `${size}px`;
+    }
+  }, [rich]);
+
+  /* loading state */
   if (!tribute || !invites) {
     return (
       <section className="flex w-full max-w-lg flex-col items-center p-4">
@@ -29,36 +79,28 @@ export default function PosterCanvas({ tributeId }: { tributeId: string }) {
     );
   }
 
-  /* 5 ▸ extract sentence parts */
-  const organizer = invites.find((i) => i.role === "organizer");
-  const recipientName = tribute.recipient_name ?? "Recipient";
-  const organizerMessage = organizer?.message ?? "";
-  const organizerName =
-    organizer?.display_name ?? organizer?.contact ?? "Organizer";
-
-  /* 6 ▸ render poster + toolbar */
+  /* render */
   return (
     <section className="flex w-full max-w-lg flex-col items-center p-4">
-      {/* poster square */}
       <div className="relative w-full aspect-square bg-white shadow-lg">
-        <div className="absolute inset-6 flex items-center justify-center">
-          <PosterParagraph
-            recipient={recipientName}
-            organizerMessage={organizerMessage}
-            organizerName={organizerName}
-            accentColor={accent}
+        {/* 3-rem inner margin */}
+        <div className="absolute inset-12 flex items-center justify-center">
+          <p
+            ref={ref}
+            className="text-[32px] leading-snug text-justify whitespace-pre-wrap font-serif"
+            style={{ maxWidth: "100%", maxHeight: "100%" }}
+            dangerouslySetInnerHTML={{ __html: rich }}
           />
         </div>
       </div>
 
-      {/* style toolbar */}
       <StyleToolbar
         tributeId={tributeId}
         current={accent}
         onChange={(color) => {
-          setAccent(color); // instant UI update
-          import("@/utils/setAccentColor").then(
-            ({ setAccentColor }) => setAccentColor(tributeId, color) // persist to DB
+          setAccent(color);
+          import("@/utils/setAccentColor").then(({ setAccentColor }) =>
+            setAccentColor(tributeId, color)
           );
         }}
       />

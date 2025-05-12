@@ -9,6 +9,11 @@ export type Invite = {
   message: string | null;
   position: number;
   sent: boolean;
+
+  /* --- NEW: visibility toggle ----------------------------------------- */
+  hidden: boolean;
+
+  /* -------------------------------------------------------------------- */
   created_at: string;
   updated_at: string;
   submitted_at: string | null;

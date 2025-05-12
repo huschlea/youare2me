@@ -10,19 +10,24 @@ const swatches = [
   "#16a34a",
 ];
 
-export default function StyleToolbar({
-  tributeId,
-  current,
-}: {
+type Props = {
   tributeId: string;
   current: string;
-}) {
+  onChange?: (hex: string) => void; // ← accept the callback
+};
+
+export default function StyleToolbar({ tributeId, current, onChange }: Props) {
   return (
-    <div className="flex gap-2 p-4 border-t">
+    <div className="flex gap-2 border-t p-4">
       {swatches.map((hex) => (
         <button
           key={hex}
-          onClick={() => setAccentColor(tributeId, hex)}
+          onClick={() => {
+            /* instant UI feedback */
+            onChange?.(hex); // ← call it
+            /* persist to DB */
+            setAccentColor(tributeId, hex).catch(console.error);
+          }}
           className="h-6 w-6 rounded-full"
           style={{
             backgroundColor: hex,
