@@ -4,7 +4,7 @@ import { useAutoFont } from "@/hooks/useAutoFont";
 
 type Props = {
   recipient: string; // e.g. "Dad"
-  organizerMessage: string; // e.g. "is the best father in the world"
+  organizerMessage: string; // e.g. "the best father in the world"
   organizerName: string; // e.g. "Alden"
   accentColor: string;
 };
@@ -17,17 +17,20 @@ export default function PosterParagraph({
 }: Props) {
   const ref = useRef<HTMLParagraphElement>(null);
 
-  /* full sentence */
-  const sentence = `${recipient} ${organizerMessage} — ${organizerName}`.trim();
+  /* 1 ▸ ensure message starts with "is " */
+  let body = organizerMessage.trim();
+  if (!/^\bis\b/i.test(body)) {
+    body = `is ${body}`;
+  }
 
-  /* auto-size to fit poster */
+  /* full sentence for auto-font sizing */
+  const sentence = `${recipient} ${body} — ${organizerName}`;
   useAutoFont(ref, sentence);
 
-  /* inject spans for colored fragments */
+  /* 2 ▸ inject coloured spans */
   useEffect(() => {
     if (!ref.current) return;
 
-    /* escape HTML in case recipient/message/name contain < or > */
     const escape = (s: string) =>
       s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -35,17 +38,13 @@ export default function PosterParagraph({
       recipient
     )}</span>`;
 
-    const coloredName = `<span style="color:${accentColor}">${escape(
+    const coloredDashAndName = `<span style="color:${accentColor}">— ${escape(
       organizerName
     )}</span>`;
 
-    /* build final HTML */
-    const html = `${coloredRecipient} ${escape(
-      organizerMessage
-    )} — ${coloredName}`;
-
+    const html = `${coloredRecipient} ${escape(body)} ${coloredDashAndName}`;
     ref.current.innerHTML = html;
-  }, [recipient, organizerMessage, organizerName, accentColor]);
+  }, [recipient, body, organizerName, accentColor]);
 
   return (
     <p
